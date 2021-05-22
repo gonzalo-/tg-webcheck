@@ -1,0 +1,66 @@
+#!/bin/sh
+
+## Debug
+#set -x
+
+## Variables
+WEB=$1
+DATE=$(date '+%a %d %b %H:%M')
+## You get it using: @BotFather
+## CHANGEME
+TOKEN="1831282803:AAEYaGsaj6vfIhatH2Y6hOxMY_Pkfs-_8"
+## You get it using: @myidbot
+## CHANGEME
+CHAT_ID="391821769"
+MSG="The Site ${WEB} is DOWN"
+URL="https://api.telegram.org/bot$TOKEN/sendMessage"
+CODE=$(curl -s -o /dev/null -w "%{http_code}" $WEB)
+PING=$(ping -c1 -w1 google.com | wc -l)
+LOG="/var/log/web-checks.log"
+LOCK="/tmp/web-check.lock"
+
+## Check link
+if [ ! "${PING}" -lt "1" ]; then
+	printf ""
+else
+	printf "[+] No Internet.\\n"
+	exit 2
+fi
+
+## Let's avoid run this 93103 times per hour
+check_lock()
+{
+	if [ -e "${LOCK}" ]; then
+		printf "[+] Already a ${0##*/} running, look at .lock on /tmp\\n"
+		exit 2
+	fi
+
+	touch ${LOCK}
+}
+
+## Logs are always useful
+check_log()
+{
+	if [ -e "${LOG}" ]; then
+		touch ${LOG}
+	fi
+}
+
+## Is it UP (200) or DOWN (000 or others)
+check_web()
+{
+	echo "${DATE} - ${WEB} - ${CODE}" >> ${LOG}
+
+	if [ ${CODE} -eq '200' ]; then
+		printf "[+] ${WEB} is UP!\\n"
+		rm ${LOCK}
+		exit
+	else
+		curl -s -X POST $URL -d chat_id=$CHAT_ID -d text="$MSG"
+		rm ${LOCK}
+	fi
+}
+
+check_lock
+check_log
+check_web
