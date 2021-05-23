@@ -13,6 +13,8 @@ TOKEN="1831282803:AAEYaGsaj6vfIhatH2Y6hOxMY_Pkfs-_8"
 ## CHANGEME
 CHAT_ID="391821769"
 MSG="The Site ${WEB} is DOWN"
+MSG_UP="The Site ${WEB} is UP"
+DOWN=$(echo ${WEB} | awk -F/ '{print $3}')
 URL="https://api.telegram.org/bot$TOKEN/sendMessage"
 CODE=$(curl -s -o /dev/null -w "%{http_code}" $WEB)
 PING=$(ping -c1 -w1 google.com | wc -l)
@@ -52,12 +54,20 @@ check_web()
 	echo "${DATE} - ${WEB} - ${CODE}" >> ${LOG}
 
 	if [ ${CODE} -eq '200' ]; then
-		printf "[+] ${WEB} is UP!\\n"
+		if [ -e /tmp/${DOWN}.down ]; then
+			rm /tmp/${DOWN}.down
+			curl -s -X POST $URL -d chat_id=$CHAT_ID -d text="$MSG_UP"
+		fi
 		rm ${LOCK}
 		exit
 	else
-		curl -s -X POST $URL -d chat_id=$CHAT_ID -d text="$MSG"
-		rm ${LOCK}
+		if [ -e /tmp/${DOWN}.down ]; then
+			rm ${LOCK}
+		else
+			curl -s -X POST $URL -d chat_id=$CHAT_ID -d text="$MSG"
+			touch /tmp/${DOWN}.down
+			rm ${LOCK}
+		fi
 	fi
 }
 
